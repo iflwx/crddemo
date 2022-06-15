@@ -73,6 +73,66 @@ client
             └── mydemo.go
 ```
 
+## 修改代码
+
+1. pkg/apis/crddemo/register.go
+
+```go
+package crddemo
+
+const (
+	GroupName = "crddemo.example.com"
+	Version   = "v1"
+)
+```
+
+2. crd/mydemo.yaml
+
+```yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: mydemos.crddemo.example.com
+spec:
+  group: crddemo.example.com
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                ip:
+                  type: string
+                port:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
+  names:
+    kind: Mydemo
+    singular: mydemo
+    plural: mydemos
+    shortNames:
+    - md
+  scope: Namespaced
+```
+
+3. example/example-mydemo.yaml
+
+```yaml
+apiVersion: crddemo.example.com/v1
+kind: Mydemo
+metadata:
+  name: example-mydemo
+spec:
+  ip: "127.0.0.1"
+  port: 8080
+```
+
 ## 编译项目
 
 ```bash
@@ -103,8 +163,10 @@ go clean -i
 
 可以看到，程序运行的时候，一开始会报错。这是因为，此时 Mydemo 对象的 CRD 还没有被创建出来，所以 Informer 去 APIServer 里获取 Mydemos 对象时，并不能找到 Mydemo 这个 API 资源类型的定义
 
+其中：master的地址可用```kubectl cluster-info```查看
+
 ```
-$  ./crddemo --kubeconfig=/data/svr/projects/kubernetes/config/kubectl.kubeconfig --master=http://127.0.0.1:8080  -alsologtostderr=true 
+$  ./crddemo --kubeconfig=/home/xxx/.kube/config_local --master=http://10.0.2.15:6443  -alsologtostderr=true 
 I0308 12:23:18.494507   27426 controller.go:79] Setting up mydemo event handlers
 I0308 12:23:18.494829   27426 controller.go:105] Starting Mydemo control loop
 I0308 12:23:18.494840   27426 controller.go:108] Waiting for informer caches to sync
@@ -119,16 +181,35 @@ E0308 12:23:26.932293   27426 reflector.go:178] github.com/domac/crddemo/pkg/cli
 接下来，我们执行我们自定义资源的定义文件：
 
 ```yaml
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: mydemos.crddemo.k8s.io
+  name: mydemos.crddemo.example.com
 spec:
-  group: crddemo.k8s.io
-  version: v1
+  group: crddemo.example.com
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                ip:
+                  type: string
+                port:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
   names:
     kind: Mydemo
+    singular: mydemo
     plural: mydemos
+    shortNames:
+    - md
   scope: Namespaced
 ```
 
@@ -136,7 +217,7 @@ spec:
 
 ```
 $  kubectl apply -f crd/mydemo.yaml 
-customresourcedefinition.apiextensions.k8s.io/mydemos.crddemo.k8s.io created
+customresourcedefinition.apiextensions.k8s.io/mydemos.crddemo.example.com created
 ```
 
 此时，观察crddemo的日志输出，可以看到Controller的日志恢复了正常，控制循环启动成功
@@ -153,7 +234,7 @@ I0308 12:30:29.956307   28282 controller.go:118] Started workers
 example-mydemo.yaml 
 
 ```yaml
-apiVersion: crddemo.k8s.io/v1
+apiVersion: crddemo.example.com/v1
 kind: Mydemo
 metadata:
   name: example-mydemo
@@ -191,7 +272,7 @@ I0308 12:31:24.983893   28282 event.go:278] Event(v1.ObjectReference{Kind:"Mydem
 我们这时候，尝试修改资源，对对应的port属性进行修改
 
 ```yaml
-apiVersion: crddemo.k8s.io/v1
+apiVersion: crddemo.example.com/v1
 kind: Mydemo
 metadata:
   name: example-mydemo
